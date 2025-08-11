@@ -149,13 +149,16 @@ EOF
 print_success "Environment configuration created"
 
 # Step 10: Test Python imports and system functionality
+# Ensure PYTHON_CMD is set
+PYTHON_CMD=${PYTHON_CMD:-python3}
+
 print_status "Testing system functionality..."
 $PYTHON_CMD -c "
 import sys
 sys.path.append('.')
 try:
-    from VuenCode.utils.config import get_config
-    from VuenCode.api.main import app
+    from utils.config import get_config
+    from api.main import app
     print('✅ All imports successful')
     
     # Test GPU availability

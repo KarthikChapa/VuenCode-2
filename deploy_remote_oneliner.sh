@@ -6,15 +6,19 @@
 echo "🚀 VuenCode Phase 2 - One-Command Deployment Starting..."
 
 # Update system and install prerequisites
-apt update -qq && apt install -y curl wget git python3-pip python3-venv htop nvidia-smi unzip
+apt update -qq && apt install -y curl wget git python3-pip python3-venv htop unzip
 
 # Install ngrok
 curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
 echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | tee /etc/apt/sources.list.d/ngrok.list
-apt update && apt install ngrok
+apt update && apt install -y ngrok
 
-# Set up ngrok auth
-ngrok config add-authtoken 318E2nqW697Tr4Leg6cJgLETIXD_oFmZ4zyvNdVwhs8c1JxL
+# Set up ngrok auth (require env var)
+if [ -z "$NGROK_AUTHTOKEN" ]; then
+  echo "❌ NGROK_AUTHTOKEN not set. Please export NGROK_AUTHTOKEN and re-run."
+  exit 1
+fi
+ngrok config add-authtoken "$NGROK_AUTHTOKEN"
 
 # Clone repository
 cd /root
@@ -26,13 +30,18 @@ python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r docker/requirements-local.txt
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# Prefer CUDA 12.1 wheels if needed; adjust for your GPU/driver
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 pip install openai-whisper
 
 # Set up environment
 cp configs/competition.env .env
-echo 'export GOOGLE_API_KEY="AIzaSyA4LCrRRlopK-lFxPNBq6WSMFQ3_PacDc8"' >> .env
-export CUDA_VISIBLE_DEVICES=0
+if [ -z "$GOOGLE_API_KEY" ]; then
+  echo "❌ GOOGLE_API_KEY not set. Export GOOGLE_API_KEY in your shell and re-run."
+  exit 1
+fi
+echo "export GOOGLE_API_KEY=\"$GOOGLE_API_KEY\"" >> .env
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
 export NVIDIA_VISIBLE_DEVICES=all
 source .env
 
@@ -58,7 +67,12 @@ fi
 
 # Start ngrok tunnel
 echo "Starting ngrok tunnel..."
-nohup ngrok http 8000 --basic-auth "competition:vuencode2024" > logs/ngrok.log 2>&1 &
+BASIC_AUTH_ARG=""
+if [ -n "$NGROK_BASIC_AUTH" ]; then
+  BASIC_AUTH_ARG="--basic-auth \"$NGROK_BASIC_AUTH\""
+fi
+# shellcheck disable=SC2086
+nohup bash -lc "ngrok http 8000 ${BASIC_AUTH_ARG}" > logs/ngrok.log 2>&1 &
 echo $! > logs/ngrok.pid
 
 # Wait for tunnel

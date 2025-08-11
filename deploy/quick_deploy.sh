@@ -45,7 +45,11 @@ fi
 
 # Step 3: Set up ngrok auth token
 print_status "🔑 Configuring ngrok authentication..."
-ngrok config add-authtoken 318E2nqW697Tr4Leg6cJgLETIXD_oFmZ4zyvNdVwhs8c1JxL
+if [ -z "$NGROK_AUTHTOKEN" ]; then
+    print_error "NGROK_AUTHTOKEN is not set. Please export NGROK_AUTHTOKEN and re-run."
+    exit 1
+fi
+ngrok config add-authtoken "$NGROK_AUTHTOKEN"
 
 # Step 4: Clone repository if not present
 if [ ! -d "VuenCode-2" ]; then

@@ -60,9 +60,12 @@ VuenCode/
 ### Phase 1: Local Development
 ```bash
 # Clone and setup
-cd VuenCode
+cd VuenCode-2
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+# Windows (PowerShell):
+# .\venv\Scripts\Activate.ps1
 pip install -r docker/requirements-local.txt
 
 # Run locally

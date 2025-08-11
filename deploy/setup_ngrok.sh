@@ -23,6 +23,16 @@ print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 VUENCODE_PORT=8000
 NGROK_CONFIG_PATH="$HOME/.ngrok2/ngrok.yml"
 
+# Ensure jq is installed (for JSON parsing)
+if ! command -v jq >/dev/null 2>&1; then
+    print_status "Installing jq for JSON parsing..."
+    if command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update -y && sudo apt-get install -y jq
+    else
+        print_warning "Package manager not found; please install 'jq' manually."
+    fi
+fi
+
 # Check if ngrok is installed
 if ! command -v ngrok &> /dev/null; then
     print_status "Installing ngrok..."
@@ -66,23 +76,16 @@ fi
 print_status "Creating ngrok configuration..."
 mkdir -p "$(dirname "$NGROK_CONFIG_PATH")"
 
-cat > "$NGROK_CONFIG_PATH" << 'EOF'
-version: '2'
-authtoken: YOUR_AUTH_TOKEN_HERE
-
+cat > "$NGROK_CONFIG_PATH" << EOF
+version: "2"
+authtoken: ${NGROK_AUTHTOKEN:-}
 tunnels:
   vuencode-api:
     proto: http
     addr: 8000
     bind_tls: true
-    hostname: vuencode-api.ngrok.io
-    inspect: false
-  
-  vuencode-health:
-    proto: http
-    addr: 8000
-    bind_tls: true
-    subdomain: vuencode-health
+    # subdomain requires a paid ngrok plan; set NGROK_SUBDOMAIN to use it
+    # subdomain: ${NGROK_SUBDOMAIN:-}
     inspect: true
 
 log_level: info
@@ -102,8 +105,8 @@ start_vuencode_server() {
     export USE_GPU_ACCELERATION=true
     export PYTHONPATH="$(pwd):$PYTHONPATH"
     
-    # Start server in background
-    nohup python -m uvicorn VuenCode.api.main:app --host 0.0.0.0 --port $VUENCODE_PORT --workers 1 > logs/server.log 2>&1 &
+    # Start server in background (module path corrected)
+    nohup python -m uvicorn api.main:app --host 0.0.0.0 --port $VUENCODE_PORT --workers 1 > logs/server.log 2>&1 &
     SERVER_PID=$!
     
     # Wait for server to start
@@ -136,7 +139,8 @@ start_ngrok_tunnel() {
     sleep 10
     
     # Get tunnel information
-    TUNNEL_INFO=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null || echo '{"tunnels":[]}')
+    TUNNEL_INFO=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null || echo '{"tunnels":[]}
+')
     
     if echo "$TUNNEL_INFO" | jq -e '.tunnels[0]' > /dev/null 2>&1; then
         PUBLIC_URL=$(echo "$TUNNEL_INFO" | jq -r '.tunnels[0].public_url')

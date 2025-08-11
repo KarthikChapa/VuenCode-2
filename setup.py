@@ -44,12 +44,17 @@ def setup_local_development():
     run_command(f"{pip_cmd} install --upgrade pip")
     run_command(f"{pip_cmd} install -r docker/requirements-local.txt")
     
-    # Copy local config
+    # Copy local config (cross-platform)
     print("\n3. Setting up configuration...")
     if not os.path.exists(".env"):
-        run_command("cp configs/local.env .env")
-        print("Local configuration created (.env)")
-    
+        import shutil
+        src = Path("configs") / "local.env"
+        if src.exists():
+            shutil.copy(src, ".env")
+            print("Local configuration created (.env)")
+        else:
+            print("configs/local.env not found; skipping")
+
     # Create cache directory
     os.makedirs("cache", exist_ok=True)
     print("Cache directory created")
@@ -65,12 +70,19 @@ def setup_docker_local():
     """Set up Docker local development."""
     print("=== Setting up VuenCode Docker Local ===")
     
+    # Prefer 'docker compose' if available, else fallback to 'docker-compose'
+    docker_compose_cmd = "docker compose"
+    try:
+        subprocess.run("docker compose version", shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        docker_compose_cmd = "docker-compose"
+    
     # Build and run local container
     print("\n1. Building Docker image...")
-    run_command("docker-compose -f docker/docker-compose.yml --profile local build vuencode-local")
+    run_command(f"{docker_compose_cmd} -f docker/docker-compose.yml --profile local build vuencode-local")
     
     print("\n2. Starting services...")
-    run_command("docker-compose -f docker/docker-compose.yml --profile local up -d vuencode-local")
+    run_command(f"{docker_compose_cmd} -f docker/docker-compose.yml --profile local up -d vuencode-local")
     
     print("\n3. Waiting for service to start...")
     import time
