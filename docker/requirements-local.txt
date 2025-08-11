@@ -1,0 +1,56 @@
+# VuenCode Local Development Requirements
+# Optimized for CPU-based development and testing
+
+# Core FastAPI stack
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# HTTP client and async support
+httpx==0.25.2
+aiohttp==3.9.1
+aiofiles==23.2.0
+
+# Video processing (CPU optimized)
+opencv-python==4.8.1.78
+Pillow==10.1.0
+numpy==1.24.4
+
+# System monitoring
+psutil==5.9.6
+
+# Testing framework
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+requests==2.31.0
+
+# Development tools
+python-dotenv==1.0.0
+python-multipart==0.0.6
+
+# Logging and utilities
+structlog==23.2.0
+
+# === Phase 2 Enhanced Features ===
+# Audio Processing with Whisper
+openai-whisper==20231117
+torch==2.1.0
+torchaudio==2.1.0
+librosa==0.10.1
+soundfile==0.12.1
+
+# Machine Learning for multimodal fusion
+scikit-learn==1.3.2
+scipy==1.11.4
+
+# Tensor operations for VST and embeddings
+torchvision==0.16.0
+
+# Google AI dependencies
+google-generativeai==0.3.2
+
+# Optional GPU detection (won't break if not available)
+# torch==2.1.0+cpu --index-url https://download.pytorch.org/whl/cpu
+# torchvision==0.16.0+cpu --index-url https://download.pytorch.org/whl/cpu

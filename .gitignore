@@ -1,0 +1,131 @@
+# VuenCode Project .gitignore
+# Competition-optimized exclusions
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# === Virtual Environments ===
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# === Environment & Configuration ===
+.env.local
+.env.production
+.env.staging
+*.env.backup
+configs/*.env.backup
+
+# === API Keys & Secrets ===
+*api_key*
+*secret*
+*.key
+*.pem
+auth.json
+credentials.json
+
+# === Development Tools ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === Testing ===
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+coverage_html/
+.cache
+nosetests.xml
+coverage.xml
+
+# === Performance & Caching ===
+cache/
+*.cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+performance_*.json
+
+# === Docker ===
+.dockerignore.bak
+docker-compose.override.yml
+
+# === Models & Data ===
+# Exclude model weights and binaries, but keep source code
+*.model
+*.pkl
+*.h5
+*.onnx
+*.trt
+*.engine
+model_weights/
+pretrained_models/
+
+# === Video Files (Test Data) ===
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+test_videos/
+sample_videos/
+
+# === Logs ===
+*.log
+logs/
+log/
+
+# === Jupyter Notebooks ===
+.ipynb_checkpoints
+*.ipynb
+
+# === OS Generated ===
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# === Competition Specific ===
+submissions/
+evaluation_results/
+benchmarks/
+ngrok_url.txt
+deployment_logs/
+
+# === Temporary Files ===
+tmp/
+temp/
+*.tmp
+*.temp

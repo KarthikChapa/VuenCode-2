@@ -1,0 +1,184 @@
+# VuenCode Docker Compose Configuration
+# Supports local development and GPU deployment scenarios
+
+version: '3.8'
+
+services:
+  # === Local Development Service ===
+  vuencode-local:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: local
+      args:
+        DEPLOYMENT_MODE: local
+    container_name: vuencode-local
+    ports:
+      - "8000:8000"
+    environment:
+      - VUENCODE_DEPLOYMENT_MODE=local
+      - VUENCODE_PERFORMANCE_PROFILE=development
+    env_file:
+      - ../configs/local.env
+    volumes:
+      # Mount source code for hot reloading in development
+      - ../:/app:ro
+      - vuencode-cache:/app/cache
+    networks:
+      - vuencode-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles: ["local"]
+
+  # === GPU Production Service ===
+  vuencode-gpu:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: gpu
+      args:
+        DEPLOYMENT_MODE: gpu
+    container_name: vuencode-gpu
+    ports:
+      - "8000:8000"
+    environment:
+      - VUENCODE_DEPLOYMENT_MODE=gpu
+      - VUENCODE_PERFORMANCE_PROFILE=production
+      - CUDA_VISIBLE_DEVICES=0
+    env_file:
+      - ../configs/competition.env
+    volumes:
+      - vuencode-cache:/app/cache
+      - vuencode-models:/app/models
+    networks:
+      - vuencode-network
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+    profiles: ["gpu"]
+
+  # === Competition Optimized Service ===
+  vuencode-competition:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: competition
+      args:
+        DEPLOYMENT_MODE: competition
+    container_name: vuencode-competition
+    ports:
+      - "8000:8000"
+    environment:
+      - VUENCODE_DEPLOYMENT_MODE=competition
+      - VUENCODE_PERFORMANCE_PROFILE=competition
+      - COMPETITION_MODE=true
+      - CUDA_VISIBLE_DEVICES=0
+    env_file:
+      - ../configs/competition.env
+    volumes:
+      - vuencode-cache:/app/cache
+      - vuencode-models:/app/models
+      - vuencode-metrics:/app/metrics
+    networks:
+      - vuencode-network
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '8.0'
+          memory: 16G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, compute, utility]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+    profiles: ["competition"]
+
+  # === Redis Cache Service ===
+  redis:
+    image: redis:7-alpine
+    container_name: vuencode-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - vuencode-network
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles: ["gpu", "competition"]
+
+  # === Monitoring Service (Optional) ===
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: vuencode-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - vuencode-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    profiles: ["monitoring"]
+
+# === Networks ===
+networks:
+  vuencode-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# === Volumes ===
+volumes:
+  vuencode-cache:
+    driver: local
+  vuencode-models:
+    driver: local
+  vuencode-metrics:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+
+# === Extension Fields for Reusability ===
+x-common-variables: &common-variables
+  PYTHONPATH: "/app"
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+x-health-check: &health-check
+  interval: 30s
+  timeout: 10s
+  retries: 3
