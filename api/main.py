@@ -23,8 +23,7 @@ import uvicorn
 
 # Import our modules
 from .schemas import (
-    InferenceRequest, InferenceResponse, HealthResponse, ErrorResponse,
-    QueryCategory, detect_query_category
+    InferenceRequest, InferenceResponse, HealthResponse, ErrorResponse
 )
 from VuenCode.utils import (
     get_config, get_performance_tracker, get_fallback_handler,
@@ -226,8 +225,23 @@ async def infer_video(request: InferenceRequest, background_tasks: BackgroundTas
         enhanced_video_processor = app.state.enhanced_video_processor
         gemini_processor = app.state.gemini_processor
         
-        # Detect query category if not provided
-        category = request.category or detect_query_category(request.query)
+        # Detect query category if not provided - use local function to avoid circular imports
+        if request.category:
+            from .schemas import detect_query_category
+            category = detect_query_category(request.category) if isinstance(request.category, str) else request.category
+        else:
+            # Simple local category detection to avoid circular imports
+            query_lower = request.query.lower()
+            if "summarize" in query_lower or "summary" in query_lower:
+                category = "video_summarization"
+            elif "what objects" in query_lower or "detect" in query_lower:
+                category = "object_detection"
+            elif "action" in query_lower or "doing" in query_lower:
+                category = "action_recognition"
+            elif "scene" in query_lower or "environment" in query_lower:
+                category = "scene_understanding"
+            else:
+                category = "general_understanding"
         
         # Track request performance
         async with tracker.track_request(request_id, category.value) as metrics:

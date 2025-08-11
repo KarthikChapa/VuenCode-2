@@ -17,7 +17,6 @@ from PIL import Image
 import io
 
 from .preprocessing import VideoFrame
-from VuenCode.api.schemas import QueryCategory
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -55,6 +54,37 @@ class ModelComplexity(Enum):
     SIMPLE = "simple"      # Use Flash model
     MODERATE = "moderate"  # Use Flash with enhanced prompts
     COMPLEX = "complex"    # Use Pro model
+
+
+# Fallback QueryCategory enum to avoid circular imports
+class QueryCategory(Enum):
+    """Query categories for processing optimization."""
+    VIDEO_SUMMARIZATION = "video_summarization"
+    OBJECT_DETECTION = "object_detection"
+    ACTION_RECOGNITION = "action_recognition"
+    SCENE_UNDERSTANDING = "scene_understanding"
+    TEMPORAL_REASONING = "temporal_reasoning"
+    CAUSAL_REASONING = "causal_reasoning"
+    COMPARATIVE_ANALYSIS = "comparative_analysis"
+    SPATIAL_REASONING = "spatial_reasoning"
+    MULTI_MODAL_REASONING = "multi_modal_reasoning"
+    VISUAL_QUESTION_ANSWERING = "visual_question_answering"
+    GENERAL_UNDERSTANDING = "general_understanding"
+    
+    @classmethod
+    def get_or_create(cls, category_input):
+        """Get QueryCategory from string or return existing enum."""
+        if isinstance(category_input, cls):
+            return category_input
+        elif isinstance(category_input, str):
+            # Try to match string to enum value
+            for cat in cls:
+                if cat.value == category_input:
+                    return cat
+            # Default fallback
+            return cls.GENERAL_UNDERSTANDING
+        else:
+            return cls.GENERAL_UNDERSTANDING
 
 
 @dataclass 
@@ -419,7 +449,7 @@ class GeminiProcessor:
         self,
         frames: List[VideoFrame],
         query: str,
-        category: QueryCategory = QueryCategory.GENERAL_UNDERSTANDING,
+        category = None,
         use_pro_model: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
@@ -437,6 +467,12 @@ class GeminiProcessor:
         start_time = time.time()
         
         try:
+            # Ensure category is QueryCategory type
+            if category is None:
+                category = QueryCategory.GENERAL_UNDERSTANDING
+            else:
+                category = QueryCategory.get_or_create(category)
+                
             if self.is_local_mode:
                 # Use local stub for development
                 response = await self._process_stub(frames, query, category)
@@ -553,7 +589,7 @@ Step 3: Transition shows deliberate movement pattern indicating planned action s
         self,
         frames: List[VideoFrame],
         query: str,
-        category: QueryCategory,
+        category,
         force_pro: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
