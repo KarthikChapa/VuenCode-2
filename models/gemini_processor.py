@@ -17,12 +17,34 @@ from PIL import Image
 import io
 
 from .preprocessing import VideoFrame
-from utils.config import get_config
-from utils.metrics import track_performance
-from api.schemas import QueryCategory
 
-
-logger = logging.getLogger(__name__)
+# Try absolute imports first, then fall back to relative or direct imports
+try:
+    # Absolute imports for standalone deployment compatibility
+    from VuenCode.utils.config import get_config
+    from VuenCode.utils.metrics import track_performance
+    from VuenCode.api.schemas import QueryCategory
+    logger = logging.getLogger(__name__)
+    logger.info("Using absolute imports from VuenCode package")
+except ImportError:
+    try:
+        # Try direct imports (assuming the package is in PYTHONPATH)
+        from utils.config import get_config
+        from utils.metrics import track_performance
+        from api.schemas import QueryCategory
+        logger = logging.getLogger(__name__)
+        logger.info("Using direct imports")
+    except ImportError:
+        # Fall back to relative imports for local development
+        try:
+            from ..utils.config import get_config
+            from ..utils.metrics import track_performance
+            from ..api.schemas import QueryCategory
+            logger = logging.getLogger(__name__)
+            logger.info("Using relative imports")
+        except ImportError:
+            logger = logging.getLogger(__name__)
+            logger.error("Could not import required modules. Check PYTHONPATH configuration.")
 
 
 class ModelComplexity(Enum):
