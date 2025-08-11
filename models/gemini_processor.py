@@ -17,8 +17,9 @@ from PIL import Image
 import io
 
 from .preprocessing import VideoFrame
-from ..utils import get_config, track_performance
-from ..api.schemas import QueryCategory
+from utils.config import get_config
+from utils.metrics import track_performance
+from api.schemas import QueryCategory
 
 
 logger = logging.getLogger(__name__)
