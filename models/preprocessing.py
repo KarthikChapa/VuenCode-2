@@ -19,7 +19,8 @@ from PIL import Image
 import io
 import base64
 
-from ..utils import get_config, track_performance
+from utils.config import get_config
+from utils.metrics import track_performance
 
 
 logger = logging.getLogger(__name__)
