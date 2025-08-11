@@ -25,7 +25,7 @@ sys.path.insert(0, project_root)
 # Now import our modules
 from utils.config import get_config
 from utils.fallback import FallbackHandler
-from utils.metrics import MetricsCollector
+from utils.metrics import get_performance_tracker
 from models.video_processor import VideoProcessor
 from models.gemini_processor import GeminiProcessor
 from models.multimodal_fusion import MultimodalFusion
@@ -43,19 +43,19 @@ multimodal_fusion = None
 vst_processor = None
 audio_processor = None
 fallback_handler = None
-metrics_collector = None
+performance_tracker = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown handling"""
     global video_processor, gemini_processor, multimodal_fusion
-    global vst_processor, audio_processor, fallback_handler, metrics_collector
+    global vst_processor, audio_processor, fallback_handler, performance_tracker
     
     try:
         logger.info("Initializing VuenCode Phase 2 components...")
         
-        # Initialize metrics collector
-        metrics_collector = MetricsCollector()
+        # Initialize performance tracker
+        performance_tracker = get_performance_tracker()
         
         # Initialize fallback handler
         fallback_handler = FallbackHandler(config)
@@ -132,8 +132,8 @@ async def health_check():
         }
         
         performance_stats = {}
-        if metrics_collector:
-            performance_stats = metrics_collector.get_summary()
+        if performance_tracker:
+            performance_stats = performance_tracker.get_performance_summary()
         
         return HealthResponse(
             status="healthy",
@@ -158,9 +158,7 @@ async def analyze_video(request: VideoRequest, background_tasks: BackgroundTasks
     logger.info(f"[{request_id}] Starting Phase 2 video analysis: {request.video_url}")
     
     try:
-        # Start metrics collection
-        if metrics_collector:
-            metrics_collector.start_request(request_id)
+        # Start performance tracking (handled by context manager)
         
         # Phase 1: Video preprocessing and frame extraction
         logger.info(f"[{request_id}] Phase 1: Video preprocessing...")
@@ -223,14 +221,7 @@ async def analyze_video(request: VideoRequest, background_tasks: BackgroundTasks
             "environment": config.get("environment", "production")
         }
         
-        # Record metrics
-        if metrics_collector:
-            metrics_collector.record_request(
-                request_id=request_id,
-                processing_time=processing_time,
-                success=True,
-                features_used=phase2_features
-            )
+        # Performance tracking handled by context manager
         
         logger.info(f"[{request_id}] Analysis completed in {processing_time:.2f}s")
         
@@ -250,13 +241,7 @@ async def analyze_video(request: VideoRequest, background_tasks: BackgroundTasks
         logger.error(f"[{request_id}] Error during analysis: {error_msg}")
         logger.error(traceback.format_exc())
         
-        # Record failed metrics
-        if metrics_collector:
-            metrics_collector.record_request(
-                request_id=request_id,
-                processing_time=processing_time,
-                success=False
-            )
+        # Performance tracking handled by context manager
         
         # Try fallback if available
         if fallback_handler:
