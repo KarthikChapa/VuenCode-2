@@ -1,0 +1,90 @@
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        },
+        "detailed": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s() - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        },
+        "access": {
+            "format": "%(asctime)s - %(client_addr)s - \"%(request_line)s\" %(status_code)s %(content_length)s - %(process_time)0.3fs",
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "INFO",
+            "formatter": "default",
+            "stream": "ext://sys.stdout"
+        },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "level": "DEBUG",
+            "formatter": "detailed",
+            "filename": "logs/vuencode.log",
+            "maxBytes": 10485760,
+            "backupCount": 5,
+            "encoding": "utf8"
+        },
+        "error_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "level": "ERROR",
+            "formatter": "detailed",
+            "filename": "logs/vuencode_errors.log",
+            "maxBytes": 10485760,
+            "backupCount": 5,
+            "encoding": "utf8"
+        },
+        "access_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "level": "INFO",
+            "formatter": "access",
+            "filename": "logs/access.log",
+            "maxBytes": 10485760,
+            "backupCount": 5,
+            "encoding": "utf8"
+        }
+    },
+    "loggers": {
+        "": {
+            "level": "INFO",
+            "handlers": ["console", "file"],
+            "propagate": false
+        },
+        "uvicorn": {
+            "level": "INFO",
+            "handlers": ["console", "file"],
+            "propagate": false
+        },
+        "uvicorn.error": {
+            "level": "ERROR",
+            "handlers": ["console", "error_file"],
+            "propagate": false
+        },
+        "uvicorn.access": {
+            "level": "INFO",
+            "handlers": ["access_file"],
+            "propagate": false
+        },
+        "api": {
+            "level": "DEBUG",
+            "handlers": ["console", "file"],
+            "propagate": false
+        },
+        "models": {
+            "level": "DEBUG",
+            "handlers": ["console", "file"],
+            "propagate": false
+        },
+        "utils": {
+            "level": "INFO",
+            "handlers": ["console", "file"],
+            "propagate": false
+        }
+    }
+}

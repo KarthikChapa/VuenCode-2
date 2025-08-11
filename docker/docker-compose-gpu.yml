@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  vuencode-gpu:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: production
+    container_name: vuencode-phase2-gpu
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=competition
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - TORCH_CUDA_ARCH_LIST=6.0;6.1;7.0;7.5;8.0;8.6+PTX
+      - FORCE_CUDA=1
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - API_MODE=competition
+      - GPU_ENABLED=true
+      - MAX_BATCH_SIZE=4
+      - VST_COMPRESSION_LEVEL=medium
+      - AUDIO_PROCESSING_ENABLED=true
+      - MULTIMODAL_FUSION_ENABLED=true
+    env_file:
+      - ../configs/competition.env
+    volumes:
+      - ../logs:/app/logs
+      - ../cache:/app/cache
+      - /tmp:/tmp
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis-cache:
+    image: redis:7-alpine
+    container_name: vuencode-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: vuencode-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../logs/nginx:/var/log/nginx
+    depends_on:
+      - vuencode-gpu
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+
+networks:
+  default:
+    name: vuencode-network
