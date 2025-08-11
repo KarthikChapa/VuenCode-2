@@ -17,27 +17,16 @@ from PIL import Image
 import io
 
 from .preprocessing import VideoFrame
+from VuenCode.api.schemas import QueryCategory
 
 # Set up logger
 logger = logging.getLogger(__name__)
-
-# Define QueryCategory here as a fallback
-# This ensures QueryCategory is always available even if imports fail
-class QueryCategory(str, Enum):
-    """Query category types for model optimization."""
-    TEXT = "text"
-    VISUAL = "visual"
-    AUDIO = "audio"
-    MULTIMODAL = "multimodal"
-    METADATA = "metadata"
-    GENERAL_UNDERSTANDING = "general_understanding"
 
 # Try absolute imports first, then fall back to relative or direct imports
 try:
     # Absolute imports for standalone deployment compatibility
     from VuenCode.utils.config import get_config
     from VuenCode.utils.metrics import track_performance
-    # We define QueryCategory ourselves now
     logger.info("Using absolute imports from VuenCode package")
 except ImportError:
     try:

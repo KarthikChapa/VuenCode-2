@@ -7,8 +7,13 @@ import asyncio
 import logging
 import time
 import uuid
+import sys
+import os
 from typing import Optional
 from contextlib import asynccontextmanager
+
+# Add parent directory to Python path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import PlainTextResponse
@@ -21,13 +26,13 @@ from .schemas import (
     InferenceRequest, InferenceResponse, HealthResponse, ErrorResponse,
     QueryCategory, detect_query_category
 )
-from ..utils import (
+from VuenCode.utils import (
     get_config, get_performance_tracker, get_fallback_handler,
     DeploymentMode, track_performance
 )
-from ..models.preprocessing import get_video_preprocessor
-from ..models.gemini_processor import get_gemini_processor
-from ..models.video_processor import get_enhanced_video_processor
+from VuenCode.models.preprocessing import get_video_preprocessor
+from VuenCode.models.gemini_processor import get_gemini_processor
+from VuenCode.models.video_processor import get_enhanced_video_processor
 
 
 # Configure logging
