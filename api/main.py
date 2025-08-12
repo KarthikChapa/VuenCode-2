@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 # Add parent directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, File, Form, UploadFile
 from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -208,13 +208,17 @@ async def health_check():
 
 
 @app.post("/infer", response_class=PlainTextResponse)
-async def infer_video(request: InferenceRequest, background_tasks: BackgroundTasks):
+async def infer_video_multipart(
+    video: UploadFile = File(..., description="Video file to analyze"),
+    prompt: str = Form(..., description="Natural language query about the video content"),
+    background_tasks: BackgroundTasks = None
+):
     """
-    Competition-optimized video inference endpoint.
-    Returns PLAIN TEXT only as required by evaluation platform.
+    Competition-required multipart/form-data endpoint.
+    Accepts video file and prompt, returns plain text response.
     """
-    # Generate request ID if not provided
-    request_id = request.request_id or f"req_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+    # Generate request ID
+    request_id = f"req_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
     
     try:
         # Get system components
@@ -225,27 +229,40 @@ async def infer_video(request: InferenceRequest, background_tasks: BackgroundTas
         enhanced_video_processor = app.state.enhanced_video_processor
         gemini_processor = app.state.gemini_processor
         
-        # Detect query category if not provided - use local function to avoid circular imports
-        if request.category:
-            from .schemas import detect_query_category
-            category = detect_query_category(request.category) if isinstance(request.category, str) else request.category
+        # Validate video file
+        if not video.filename:
+            return "Error: No video file provided"
+        
+        # Check file extension
+        allowed_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.m4v']
+        file_ext = os.path.splitext(video.filename.lower())[1]
+        if file_ext not in allowed_extensions:
+            return f"Error: Unsupported video format. Supported formats: {', '.join(allowed_extensions)}"
+        
+        # Read video data
+        video_data = await video.read()
+        if not video_data:
+            return "Error: Empty video file"
+        
+        # Generate video hash for caching
+        video_hash = video_processor.generate_video_hash(video_data)
+        
+        # Detect query category
+        query_lower = prompt.lower()
+        if "summarize" in query_lower or "summary" in query_lower:
+            category = "video_summarization"
+        elif "what objects" in query_lower or "detect" in query_lower:
+            category = "object_detection"
+        elif "action" in query_lower or "doing" in query_lower:
+            category = "action_recognition"
+        elif "scene" in query_lower or "environment" in query_lower:
+            category = "scene_understanding"
         else:
-            # Simple local category detection to avoid circular imports
-            query_lower = request.query.lower()
-            if "summarize" in query_lower or "summary" in query_lower:
-                category = "video_summarization"
-            elif "what objects" in query_lower or "detect" in query_lower:
-                category = "object_detection"
-            elif "action" in query_lower or "doing" in query_lower:
-                category = "action_recognition"
-            elif "scene" in query_lower or "environment" in query_lower:
-                category = "scene_understanding"
-            else:
-                category = "general_understanding"
+            category = "general_understanding"
         
         # Track request performance
-        async with tracker.track_request(request_id, category.value) as metrics:
-            metrics.frame_count = request.max_frames or config.max_frames_per_video
+        async with tracker.track_request(request_id, category) as metrics:
+            metrics.frame_count = config.max_frames_per_video
             
             # Process with fallback handling using Phase 2 enhanced processor
             async def primary_processor(video_data, query):
@@ -259,7 +276,7 @@ async def infer_video(request: InferenceRequest, background_tasks: BackgroundTas
                         query=query,
                         category=category,
                         max_frames=metrics.frame_count,
-                        quality=request.quality or "balanced",
+                        quality="balanced",
                         use_pro_model=False  # Start with Flash for speed
                     )
                     
@@ -277,7 +294,7 @@ async def infer_video(request: InferenceRequest, background_tasks: BackgroundTas
                         tracker.track_processing_stage(request_id, "gemini_inference",
                                                      breakdown.get("gemini_inference_ms", 0))
                     
-                    metrics.model_used = result.get("model_used", "gemini-2.5-flash-enhanced")
+                    metrics.model_used = result.get("model_used", "gemini-2.0-flash-exp-enhanced")
                     
                     # Add Phase 2 metadata to metrics for monitoring
                     if "multimodal_analysis" in result:
@@ -294,7 +311,7 @@ async def infer_video(request: InferenceRequest, background_tasks: BackgroundTas
                     frames = await video_processor.extract_frames(
                         video_data,
                         max_frames=metrics.frame_count,
-                        quality=request.quality or "balanced"
+                        quality="balanced"
                     )
                     
                     basic_result = await gemini_processor.analyze_video(
@@ -304,7 +321,7 @@ async def infer_video(request: InferenceRequest, background_tasks: BackgroundTas
                         use_pro_model=False
                     )
                     
-                    metrics.model_used = basic_result.get("model_used", "gemini-2.5-flash-basic")
+                    metrics.model_used = basic_result.get("model_used", "gemini-2.0-flash-exp-basic")
                     return basic_result["content"]
             
             async def secondary_processor(video_data, query):
@@ -326,38 +343,17 @@ async def infer_video(request: InferenceRequest, background_tasks: BackgroundTas
                     use_pro_model=False
                 )
                 
-                metrics.model_used = result.get("model_used", "gemini-2.5-flash-cpu")
+                metrics.model_used = result.get("model_used", "gemini-2.0-flash-exp-cpu")
                 return result["content"]
-            
-            # Prepare video data
-            video_data = None
-            video_hash = "unknown"
-            
-            if request.video_url:
-                # Download video from URL
-                stage_start = time.time()
-                video_data = await video_processor.download_video(str(request.video_url))
-                video_hash = video_processor.generate_video_hash(video_data)
-                stage_time = (time.time() - stage_start) * 1000
-                tracker.track_processing_stage(request_id, "video_download", stage_time)
-                
-            elif request.video_data:
-                # Decode base64 video data
-                import base64
-                video_data = base64.b64decode(request.video_data)
-                video_hash = video_processor.generate_video_hash(video_data)
-            
-            else:
-                raise HTTPException(status_code=400, detail="No video source provided")
             
             # Process with intelligent fallback
             fallback_response = await fallback_handler.process_with_fallback(
                 video_data=video_data,
-                query=request.query,
+                query=prompt,
                 video_hash=video_hash,
                 primary_processor=primary_processor,
                 secondary_processor=secondary_processor,
-                category=category.value
+                category=category
             )
             
             # Update metrics from fallback response
@@ -365,27 +361,25 @@ async def infer_video(request: InferenceRequest, background_tasks: BackgroundTas
             metrics.cache_hit = fallback_response.cached
             
             # Add background task to update cache if high-quality response
-            if fallback_response.confidence >= 0.8 and not fallback_response.cached:
+            if background_tasks and fallback_response.confidence >= 0.8 and not fallback_response.cached:
                 background_tasks.add_task(
                     fallback_handler.cache.store,
-                    video_hash, request.query, fallback_response
+                    video_hash, prompt, fallback_response
                 )
             
             # Log successful processing
             logger.info(
-                f"Request {request_id} processed successfully: "
+                f"Multipart request {request_id} processed successfully: "
                 f"latency={fallback_response.latency_ms:.1f}ms, "
                 f"tier={fallback_response.tier_used.value}, "
-                f"category={category.value}"
+                f"category={category}"
             )
             
             # Return plain text content as required by competition
             return fallback_response.content
     
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Request {request_id} failed with error: {e}")
+        logger.error(f"Multipart request {request_id} failed with error: {e}")
         
         # Return error as plain text (competition requirement)
         error_message = (
@@ -394,7 +388,7 @@ async def infer_video(request: InferenceRequest, background_tasks: BackgroundTas
             "please ensure your video is in a supported format (MP4, AVI, MOV)."
         )
         
-        return error_message
+
 
 
 @app.get("/metrics")

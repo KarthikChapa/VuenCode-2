@@ -26,9 +26,9 @@ sys.path.insert(0, project_root)
 from utils.config import get_config
 from utils.fallback import FallbackHandler
 from utils.metrics import get_performance_tracker
-from models.video_processor import VideoProcessor
+from models.video_processor import EnhancedVideoProcessor as VideoProcessor
 from models.gemini_processor import GeminiProcessor
-from models.multimodal_fusion import MultimodalFusion
+from models.multimodal_fusion import MultimodalFusionBus as MultimodalFusion
 from models.vst_processor import VSTProcessor
 from models.audio_processor import AudioProcessor
 

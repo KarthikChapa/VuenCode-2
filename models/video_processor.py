@@ -18,6 +18,7 @@ from .gemini_processor import GeminiProcessor, get_gemini_processor, QueryCatego
 from .audio_processor import AudioProcessor, get_audio_processor
 from .multimodal_fusion import MultimodalFusionBus, get_fusion_bus
 from .vst_processor import VSTProcessor, get_vst_processor, VSTCompressionLevel
+from .pyramid_context import get_pyramid_context_processor
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -69,6 +70,13 @@ class EnhancedVideoProcessor:
         self.fusion_bus = get_fusion_bus()
         self.vst_processor = get_vst_processor()
         self.gemini_processor = get_gemini_processor()
+        
+        # Initialize Pyramid Context processor (optional)
+        self.pyramid_processor = None
+        self.enable_pyramid_context = getattr(self.config, 'enable_pyramid_context', False)
+        if self.enable_pyramid_context:
+            self.pyramid_processor = get_pyramid_context_processor(config)
+            self.logger.info("Pyramid Context processor enabled")
         
         # Performance configuration
         self.enable_vst_compression = getattr(self.config, 'enable_vst_compression', True)
@@ -253,6 +261,34 @@ class EnhancedVideoProcessor:
                 self.logger.error(f"Fallback processing also failed: {fallback_error}")
                 raise
     
+    @track_performance("pyramid_video_analysis")
+    async def analyze_video_pyramid(
+        self,
+        video_data: bytes,
+        query: str,
+        category: QueryCategory,
+        use_pyramid: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Enhanced video analysis with optional Pyramid Context system.
+        
+        Args:
+            video_data: Raw video bytes
+            query: Natural language query
+            category: Query category for optimization
+            use_pyramid: Whether to use Pyramid Context system
+            
+        Returns:
+            Dictionary with analysis results
+        """
+        
+        if use_pyramid and self.pyramid_processor:
+            self.logger.info("Using Pyramid Context system for video analysis")
+            return await self.pyramid_processor.process_video_pyramid(video_data, query)
+        else:
+            self.logger.info("Using standard enhanced video analysis")
+            return await self.analyze_video_enhanced(video_data, query, category)
+    
     async def _process_video_stream(
         self, 
         video_data: bytes, 
@@ -405,9 +441,15 @@ def get_enhanced_video_processor() -> EnhancedVideoProcessor:
 
 def initialize_enhanced_video_processor(config=None) -> EnhancedVideoProcessor:
     """Initialize the global enhanced video processor with custom config."""
-    global _enhanced_video_processor
-    _enhanced_video_processor = EnhancedVideoProcessor(config)
-    return _enhanced_video_processor
+    
+    
+# For compatibility with main_standalone.py
+# Alias for backward compatibility with main_standalone.py
+VideoProcessor = EnhancedVideoProcessor
+
+def get_video_processor() -> EnhancedVideoProcessor:
+    """Alias for get_enhanced_video_processor for backward compatibility."""
+    return get_enhanced_video_processor()
 
 
 # Backward compatibility: Export enhanced processor as default

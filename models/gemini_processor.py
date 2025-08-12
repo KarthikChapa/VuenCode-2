@@ -694,9 +694,32 @@ Step 3: Transition shows deliberate movement pattern indicating planned action s
         
         result = response.json()
         
-        # Extract content from response
+        # Extract content from response with better error handling
         if "candidates" in result and len(result["candidates"]) > 0:
-            content = result["candidates"][0]["content"]["parts"][0]["text"]
+            candidate = result["candidates"][0]
+            
+            # Handle different response structures
+            if "content" in candidate and "parts" in candidate["content"]:
+                parts = candidate["content"]["parts"]
+                if len(parts) > 0 and "text" in parts[0]:
+                    content = parts[0]["text"]
+                else:
+                    raise Exception("No text content in response parts")
+            elif "content" in candidate and isinstance(candidate["content"], str):
+                # Direct string content
+                content = candidate["content"]
+            elif "content" in candidate and isinstance(candidate["content"], dict):
+                # Handle case where content is a dict (like {'role': 'model'})
+                if candidate.get("finishReason") == "MAX_TOKENS":
+                    self.logger.warning("Response truncated due to token limit")
+                    content = "Response was truncated due to length. Please try a shorter query or more specific question."
+                else:
+                    self.logger.warning(f"Unexpected content structure: {candidate['content']}")
+                    content = "Unable to extract content from response"
+            else:
+                # Try to extract from other possible structures
+                self.logger.warning(f"Unexpected response structure: {candidate}")
+                content = str(candidate.get("content", "No content available"))
             
             return {
                 "content": content,
@@ -704,6 +727,8 @@ Step 3: Transition shows deliberate movement pattern indicating planned action s
                 "token_count": result.get("usageMetadata", {}).get("totalTokenCount")
             }
         else:
+            # Log the full response for debugging
+            self.logger.error(f"Invalid API response structure: {result}")
             raise Exception("No valid response from Gemini API")
     
     def get_usage_stats(self) -> Dict[str, Any]:
@@ -727,6 +752,114 @@ Step 3: Transition shows deliberate movement pattern indicating planned action s
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit with cleanup."""
         await self.http_client.aclose()
+
+    async def process_text_only(self, query: str, category: QueryCategory = None) -> Dict[str, Any]:
+        """Process text-only queries without frames."""
+        start_time = time.time()
+        
+        try:
+            if category is None:
+                category = QueryCategory.GENERAL_UNDERSTANDING
+            else:
+                category = QueryCategory.get_or_create(category)
+            
+            if self.is_local_mode:
+                # Simple text stub response
+                await asyncio.sleep(0.05)  # 50ms delay
+                return {
+                    "content": f"Text analysis result for: {query}",
+                    "model_used": "stub",
+                    "confidence": 0.9
+                }
+            else:
+                # Use Gemini API for text-only processing
+                model = "gemini-2.0-flash-exp"  # Use Flash for text processing
+                
+                # Prepare text-only request
+                request_data = {
+                    "contents": [{
+                        "parts": [{
+                            "text": query
+                        }]
+                    }],
+                    "generationConfig": {
+                        "temperature": 0.7,
+                        "topK": 40,
+                        "topP": 0.95,
+                        "maxOutputTokens": 2048,  # Increased token limit
+                    }
+                }
+                
+                # Call API
+                response = await self._call_gemini_api(request_data, model)
+                
+                processing_time = (time.time() - start_time) * 1000
+                
+                return {
+                    "content": response.get("content", "No response generated"),
+                    "model_used": model,
+                    "processing_time_ms": processing_time,
+                    "confidence": 0.9,
+                    "metadata": {
+                        "category": category.value,
+                        "text_only": True
+                    }
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Text processing failed: {e}")
+            return {
+                "content": f"Error processing text: {str(e)}",
+                "model_used": "error",
+                "processing_time_ms": (time.time() - start_time) * 1000,
+                "confidence": 0.0
+            }
+
+    async def generate_summary(self, content: List[str], instruction: str) -> str:
+        """Generate a summary from content with specific instruction."""
+        try:
+            # Combine content
+            combined_content = "\n".join(content)
+            
+            # Create prompt
+            prompt = f"{instruction}\n\nContent: {combined_content}\n\nSummary:"
+            
+            # Use text-only processing
+            result = await self.process_text_only(prompt, QueryCategory.VIDEO_SUMMARIZATION)
+            return result.get('content', 'Summary generation failed').strip()
+            
+        except Exception as e:
+            self.logger.error(f"Summary generation failed: {e}")
+            return "Summary generation failed"
+    
+    async def extract_concepts(self, text: str) -> List[str]:
+        """Extract key concepts from text."""
+        try:
+            prompt = f"Extract key concepts from: {text}\n\nConcepts (comma-separated):"
+            
+            result = await self.process_text_only(prompt, QueryCategory.GENERAL_UNDERSTANDING)
+            
+            response = result.get('content', '')
+            
+            # Parse comma-separated concepts
+            concepts = [concept.strip() for concept in response.split(",")]
+            return [c for c in concepts if c and len(c) > 2]  # Filter out empty/short concepts
+            
+        except Exception as e:
+            self.logger.error(f"Concept extraction failed: {e}")
+            return []
+    
+    async def generate_response(self, query: str, context: str, instruction: str = "") -> str:
+        """Generate a response to a query with context."""
+        try:
+            prompt = f"{instruction}\n\nContext: {context}\n\nQuery: {query}\n\nResponse:"
+            
+            result = await self.process_text_only(prompt, QueryCategory.GENERAL_UNDERSTANDING)
+            return result.get('content', 'Response generation failed').strip()
+            
+        except Exception as e:
+            self.logger.error(f"Response generation failed: {e}")
+            return "Response generation failed"
 
 
 # Global processor instance

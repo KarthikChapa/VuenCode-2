@@ -54,8 +54,8 @@ class VuenCodeConfig(BaseSettings):
     
     # === Model Configuration ===
     gemini_api_key: Optional[str] = Field(default=None, description="Google Gemini API key")
-    gemini_flash_model: str = Field(default="gemini-2.5-flash", description="Fast Gemini model")
-    gemini_pro_model: str = Field(default="gemini-2.5-pro", description="Complex Gemini model")
+    gemini_flash_model: str = Field(default="gemini-2.0-flash-exp", description="Fast Gemini model")
+    gemini_pro_model: str = Field(default="gemini-2.0-flash-exp", description="Complex Gemini model")
     
     # Model selection thresholds
     complexity_threshold: float = Field(default=0.6, description="Threshold for Flash vs Pro selection")
@@ -99,6 +99,15 @@ class VuenCodeConfig(BaseSettings):
     whisper_model_size: str = Field(default="base", description="Whisper model size (tiny/base/small/medium/large)")
     vst_max_tokens_per_minute: int = Field(default=15, description="Maximum VST tokens per minute of video")
     multimodal_embedding_dim: int = Field(default=768, description="Multimodal embedding dimension")
+    
+    # === VLM Integration (Optional) ===
+    enable_vlm: bool = False
+    vlm_model: str = "llava-hf/llava-1.5-7b-hf"
+    
+    # === Pyramid Context System (Optional) ===
+    enable_pyramid_context: bool = False
+    pyramid_segment_duration: int = 30
+    pyramid_chapter_duration: int = 300
     
     class Config:
         env_file = ".env"
