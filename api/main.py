@@ -9,6 +9,8 @@ import time
 import uuid
 import sys
 import os
+import base64
+import aiohttp
 from typing import Optional
 from contextlib import asynccontextmanager
 
@@ -208,14 +210,19 @@ async def health_check():
 
 
 @app.post("/infer", response_class=PlainTextResponse)
-async def infer_video_multipart(
-    video: UploadFile = File(..., description="Video file to analyze"),
+async def infer_video_flexible(
+    video: Optional[UploadFile] = File(None, description="Video file to analyze (multipart upload)"),
+    video_url: Optional[str] = Form(None, description="Video URL to download and analyze"),
+    video_base64: Optional[str] = Form(None, description="Base64 encoded video data"),
     prompt: str = Form(..., description="Natural language query about the video content"),
     background_tasks: BackgroundTasks = None
 ):
     """
-    Competition-required multipart/form-data endpoint.
-    Accepts video file and prompt, returns plain text response.
+    Competition-flexible endpoint that accepts video in multiple formats:
+    1. Multipart file upload (video parameter)
+    2. URL download (video_url parameter)
+    3. Base64 encoded data (video_base64 parameter)
+    Returns plain text response as required by competition.
     """
     # Generate request ID
     request_id = f"req_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
@@ -229,20 +236,52 @@ async def infer_video_multipart(
         enhanced_video_processor = app.state.enhanced_video_processor
         gemini_processor = app.state.gemini_processor
         
-        # Validate video file
-        if not video.filename:
-            return "Error: No video file provided"
+        # Handle different video input formats
+        video_data = None
+        video_filename = None
         
-        # Check file extension
+        # Priority: multipart file > URL > base64
+        if video and video.filename:
+            # Multipart file upload
+            video_filename = video.filename
+            video_data = await video.read()
+            if not video_data:
+                return "Error: Empty video file"
+                
+        elif video_url:
+            # URL download
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(video_url) as response:
+                        if response.status == 200:
+                            video_data = await response.read()
+                            # Extract filename from URL
+                            video_filename = video_url.split('/')[-1] or "downloaded_video.mp4"
+                        else:
+                            return f"Error: Failed to download video from URL (status: {response.status})"
+            except Exception as e:
+                return f"Error: Failed to download video from URL: {str(e)}"
+                
+        elif video_base64:
+            # Base64 encoded data
+            try:
+                video_data = base64.b64decode(video_base64)
+                video_filename = "base64_video.mp4"  # Default filename
+            except Exception as e:
+                return f"Error: Failed to decode base64 video data: {str(e)}"
+        else:
+            return "Error: No video provided. Please provide video file, video_url, or video_base64"
+        
+        # Validate video data
+        if not video_data or len(video_data) == 0:
+            return "Error: No valid video data received"
+        
+        # Check file extension (if available)
         allowed_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.m4v']
-        file_ext = os.path.splitext(video.filename.lower())[1]
-        if file_ext not in allowed_extensions:
-            return f"Error: Unsupported video format. Supported formats: {', '.join(allowed_extensions)}"
-        
-        # Read video data
-        video_data = await video.read()
-        if not video_data:
-            return "Error: Empty video file"
+        if video_filename:
+            file_ext = os.path.splitext(video_filename.lower())[1]
+            if file_ext and file_ext not in allowed_extensions:
+                return f"Error: Unsupported video format. Supported formats: {', '.join(allowed_extensions)}"
         
         # Generate video hash for caching
         video_hash = video_processor.generate_video_hash(video_data)
