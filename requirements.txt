@@ -1,0 +1,29 @@
+# Core dependencies for VuenCode Phase 2
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+aiohttp==3.9.1
+aiofiles==23.2.0
+httpx==0.25.2
+
+# AI/ML dependencies
+google-generativeai==0.3.2
+openai-whisper==20231117
+torch==2.1.1
+torchaudio==2.1.1
+torchvision==0.16.1
+
+# Computer vision and image processing
+opencv-python==4.8.1.78
+Pillow==10.1.0
+numpy==1.24.4
+
+# Audio processing
+librosa==0.10.1
+soundfile==0.12.1
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.0
+loguru==0.7.2
+asyncio-throttle==1.0.2
