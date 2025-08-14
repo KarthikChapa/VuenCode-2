@@ -112,7 +112,7 @@ Traditional systems analyze video and audio separately, missing crucial connecti
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/vuencode-phase2.git
+   git clone https://github.com/karthikchapa/vuencode-phase2.git
    cd vuencode-phase2
    ```
 
@@ -151,9 +151,8 @@ curl -X POST "http://localhost:8000/infer" \
 ## Real-World Performance
 
 ### Competition Results
-- **Speed**: 287ms average response time (faster than human reaction)
 - **Accuracy**: 98.5% successful analysis rate
-- **Scale**: Handles videos from 30 seconds to 2+ hours
+- **Scale**: Handles videos from 30 seconds to 2 hours
 - **Languages**: Automatic speech recognition in 50+ languages
 
 ### Example Processing Times
@@ -335,11 +334,6 @@ python api/main_standalone.py --debug
 - **Languages**: 50+ languages for speech recognition
 - **Resolution**: Up to 4K video processing
 
-### Performance Characteristics
-- **Latency**: Sub-400ms for most queries
-- **Throughput**: 100+ concurrent video analyses
-- **Scalability**: Horizontal scaling with Docker
-- **Reliability**: 99.9% uptime with proper deployment
 
 ## Limitations & Future Work
 
@@ -353,27 +347,3 @@ python api/main_standalone.py --debug
 - **Live Streaming**: Real-time analysis of streaming video
 - **Multi-Language UI**: Support for non-English interfaces
 - **Advanced Analytics**: Sentiment analysis, emotion detection
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support & Community
-
-- **Documentation**: [Project Wiki](link-to-wiki)
-- **Issues**: [GitHub Issues](link-to-issues)
-- **Discussions**: [Community Forum](link-to-discussions)
-- **Email**: support@vuencode.com
-
-## Acknowledgments
-
-- Google Gemini team for cutting-edge AI capabilities
-- OpenAI Whisper team for speech recognition excellence
-- Competition organizers for challenging problem statements
-- Open source community for foundational tools
-
----
-
-**VuenCode Phase 2** represents a significant leap forward in video understanding technology, making long-form video analysis accessible, fast, and incredibly accurate. Whether you're building educational tools, content management systems, or accessibility solutions, our system provides the AI-powered video understanding capabilities your users need.
-
-Ready to start analyzing videos with AI? Get started with our Quick Start Guide above!
