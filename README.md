@@ -69,7 +69,7 @@ Kitchen Tools Used Throughout Recipe:
 
 Our system processes video through four specialized components working together:
 
-![System Architecture](Untitled%20diagram%20_%20Mermaid%20Chart-2025-08-13-133835.png)
+![System Architecture](Untitled%20diagram%20%7C%20Mermaid%20Chart-2025-08-13-182046.png)
 
 ```
 Video Upload → Frame Analysis → Audio Processing → Information Fusion → AI Response
